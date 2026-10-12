@@ -1,0 +1,18 @@
+# Build outputs - rebuild from backend/src (see README, Quick start)
+*.exe
+*.o
+*.obj
+backend/veli
+
+# Map data - large and fully regenerable (see README, Map data)
+data/*.osm
+data/elevations.csv
+data/overpass_query.txt
+*.gpx
+
+# Local tooling
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

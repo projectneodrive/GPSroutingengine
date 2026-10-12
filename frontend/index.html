@@ -1,0 +1,1632 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Véli - GPS pour véhicules intermédiaires</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <style>
+      :root {
+        --bg: #0d1117;
+        --panel: #151b23;
+        --card: #1b232e;
+        --card2: #222c39;
+        --text: #e9eef4;
+        --muted: #8b9bab;
+        --accent: #34d399;
+        --accent-dim: #10b981;
+        --accent2: #60a5fa;
+        --warn: #fbbf24;
+        --danger: #f87171;
+        --border: #2a3542;
+        --shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        font:
+          14px/1.5 'Inter',
+          system-ui,
+          sans-serif;
+        color: var(--text);
+        background: var(--bg);
+        display: flex;
+      }
+      #panel {
+        width: 370px;
+        min-width: 370px;
+        height: 100vh;
+        overflow-y: auto;
+        background: var(--panel);
+        border-right: 1px solid var(--border);
+        padding: 18px 18px 32px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+      }
+      #map {
+        flex: 1;
+        height: 100vh;
+        background: #0c1116;
+        position: relative;
+      }
+      h1 {
+        font-size: 21px;
+        font-weight: 800;
+        margin: 0;
+        letter-spacing: -0.3px;
+      }
+      h1 .nd {
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .tagline {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 3px 0 14px;
+      }
+
+      /* ---- tabs ---- */
+      .tabbar {
+        display: flex;
+        gap: 4px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 4px;
+        margin-bottom: 14px;
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .tabbar button {
+        flex: 1;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font:
+          600 13px 'Inter',
+          sans-serif;
+        padding: 8px 0;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: all 0.18s;
+      }
+      .tabbar button.active {
+        background: var(--card2);
+        color: var(--text);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+      .tabbar button .ico {
+        margin-right: 5px;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 13px 14px;
+        margin-bottom: 12px;
+      }
+      h2 {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.4px;
+        color: var(--muted);
+        margin: 2px 0 10px;
+      }
+
+      /* ---- stops ---- */
+      .stop {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 7px 0;
+        position: relative;
+      }
+      .stop .badge {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 800;
+        color: #08110d;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+      }
+      .stop input {
+        flex: 1;
+        background: var(--card2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 9px 11px;
+        font:
+          500 13px 'Inter',
+          sans-serif;
+        outline: none;
+        min-width: 0;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+      .stop input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15);
+      }
+      .stop input::placeholder {
+        color: #5c6b7a;
+      }
+      .stop .rm {
+        flex: none;
+        width: 26px;
+        height: 26px;
+        border-radius: 8px;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+        margin: 0;
+        transition: all 0.15s;
+      }
+      .stop .rm:hover {
+        color: var(--danger);
+        background: var(--card2);
+      }
+      .suggest {
+        position: absolute;
+        top: 100%;
+        left: 33px;
+        right: 0;
+        z-index: 1000;
+        background: var(--card2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        margin-top: 3px;
+        overflow: hidden;
+        box-shadow: var(--shadow);
+      }
+      .suggest div {
+        padding: 8px 11px;
+        font-size: 12.5px;
+        cursor: pointer;
+        transition: background 0.1s;
+      }
+      .suggest div:hover {
+        background: rgba(52, 211, 153, 0.13);
+      }
+      .stopbtns {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .stopbtns button {
+        flex: 1;
+        margin-top: 0;
+        padding: 8px 10px;
+        font-size: 12.5px;
+      }
+
+      /* ---- controls ---- */
+      .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 9px 0;
+        gap: 10px;
+      }
+      .row label {
+        flex: 1;
+        font-weight: 500;
+      }
+      .row label small {
+        display: block;
+        color: var(--muted);
+        font-weight: 400;
+        font-size: 11px;
+      }
+      .row .val {
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+        min-width: 62px;
+        text-align: right;
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      input[type='range'] {
+        -webkit-appearance: none;
+        width: 118px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--border);
+        outline: none;
+      }
+      input[type='range']::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--accent);
+        cursor: pointer;
+        border: 2px solid #0d1117;
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+        transition: transform 0.1s;
+      }
+      input[type='range']::-webkit-slider-thumb:hover {
+        transform: scale(1.15);
+      }
+      select {
+        background: var(--card2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 5px 8px;
+        font:
+          500 12.5px 'Inter',
+          sans-serif;
+        max-width: 170px;
+      }
+      /* toggle switch */
+      input[type='checkbox'].sw {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 40px;
+        height: 22px;
+        flex: none;
+        border-radius: 11px;
+        background: var(--border);
+        position: relative;
+        cursor: pointer;
+        transition: background 0.2s;
+        outline: none;
+        margin: 0;
+      }
+      input[type='checkbox'].sw::after {
+        content: '';
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #aebbc8;
+        transition: all 0.2s;
+      }
+      input[type='checkbox'].sw:checked {
+        background: var(--accent-dim);
+      }
+      input[type='checkbox'].sw:checked::after {
+        left: 21px;
+        background: #fff;
+      }
+      .subopt {
+        margin: 2px 0 6px 12px;
+        padding: 8px 10px 2px;
+        border-left: 2px solid var(--border);
+      }
+      .pulse {
+        animation: pulseGlow 1.6s ease-out 2;
+        border-radius: 10px;
+      }
+      @keyframes pulseGlow {
+        0% {
+          box-shadow: 0 0 0 0 rgba(96, 165, 250, 0.55);
+        }
+        70% {
+          box-shadow: 0 0 0 9px rgba(96, 165, 250, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(96, 165, 250, 0);
+        }
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 11px;
+        margin: 2px 0 8px;
+        line-height: 1.45;
+      }
+
+      button {
+        background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+        color: #06251b;
+        border: 0;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font:
+          700 13.5px 'Inter',
+          sans-serif;
+        cursor: pointer;
+        width: 100%;
+        margin-top: 8px;
+        transition:
+          transform 0.1s,
+          filter 0.15s;
+      }
+      button:hover:not(:disabled) {
+        filter: brightness(1.08);
+      }
+      button:active:not(:disabled) {
+        transform: scale(0.985);
+      }
+      button:disabled {
+        background: var(--card2);
+        color: #5c6b7a;
+        cursor: default;
+      }
+      button.secondary {
+        background: var(--card2);
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+
+      #status {
+        margin: 10px 2px 0;
+        font-size: 12.5px;
+        color: var(--muted);
+        min-height: 18px;
+      }
+      #status.busy {
+        color: var(--accent2);
+      }
+      #status.busy::before {
+        content: '';
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        border: 2px solid var(--accent2);
+        border-top-color: transparent;
+        margin-right: 7px;
+        animation: spin 0.8s linear infinite;
+        vertical-align: -1px;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ---- results ---- */
+      #results {
+        display: none;
+      }
+      .statgrid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      .stat {
+        background: var(--card2);
+        border-radius: 10px;
+        padding: 8px 10px;
+      }
+      .stat .k {
+        color: var(--muted);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        font-weight: 600;
+      }
+      .stat b {
+        font-size: 15px;
+        font-variant-numeric: tabular-nums;
+        display: block;
+        margin-top: 1px;
+      }
+      .extra {
+        font-size: 12.5px;
+        color: var(--muted);
+        margin: 6px 2px 0;
+      }
+      .extra b {
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+      }
+      .cmpbox {
+        border-top: 1px dashed var(--border);
+        margin-top: 9px;
+        padding-top: 8px;
+        font-size: 12.5px;
+        color: var(--accent2);
+      }
+      .cmpbox b {
+        float: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .warnbox {
+        background: rgba(251, 191, 36, 0.08);
+        border: 1px solid rgba(251, 191, 36, 0.35);
+        border-radius: 10px;
+        padding: 8px 10px;
+        margin-top: 9px;
+        font-size: 12px;
+        color: var(--warn);
+      }
+      .errbox {
+        background: rgba(248, 113, 113, 0.08);
+        border: 1px solid rgba(248, 113, 113, 0.35);
+        border-radius: 10px;
+        padding: 8px 10px;
+        margin-top: 9px;
+        font-size: 12.5px;
+        color: var(--danger);
+      }
+      a.gpx {
+        display: block;
+        text-align: center;
+        margin-top: 10px;
+        color: var(--accent2);
+        font-weight: 700;
+        font-size: 13px;
+        text-decoration: none;
+      }
+      a.gpx:hover {
+        text-decoration: underline;
+      }
+      #profile {
+        width: 100%;
+        height: 96px;
+        display: block;
+        background: var(--card2);
+        border-radius: 10px;
+        cursor: crosshair;
+      }
+      #ptip {
+        position: absolute;
+        pointer-events: none;
+        display: none;
+        z-index: 5;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 3px 8px;
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+        transform: translate(-50%, -130%);
+        box-shadow: var(--shadow);
+      }
+      .legend {
+        font-size: 11.5px;
+        color: var(--muted);
+        margin-top: 8px;
+        text-align: center;
+      }
+      .legend .sw2 {
+        display: inline-block;
+        width: 20px;
+        height: 4px;
+        border-radius: 2px;
+        vertical-align: middle;
+        margin: 0 4px 0 10px;
+      }
+
+      /* ---- loader (petit voyageur suisse) ---- */
+      #loader {
+        position: absolute;
+        inset: 0;
+        z-index: 1200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(10, 14, 19, 0.55);
+        backdrop-filter: blur(3px);
+      }
+      #loader.on {
+        display: flex;
+      }
+      #loader .lcard {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 26px 30px 20px;
+        box-shadow: var(--shadow);
+        text-align: center;
+        min-width: 320px;
+      }
+      .track {
+        position: relative;
+        width: 260px;
+        height: 48px;
+        margin: 0 auto;
+        border-bottom: 2px dashed #3b4a5c;
+      }
+      #rider {
+        position: absolute;
+        bottom: 3px;
+        left: -10%;
+        font-size: 28px;
+        line-height: 1;
+        transition: none;
+      }
+      /* l'émoji cycliste regarde vers la gauche : on le retourne pour qu'il roule
+     dans le sens de l'animation (gauche -> droite) */
+      #rider.riding {
+        animation: ride 2.1s linear infinite;
+        transform: scaleX(-1);
+      }
+      @keyframes ride {
+        from {
+          left: -12%;
+        }
+        to {
+          left: 100%;
+        }
+      }
+      #rider.planted {
+        left: 82%;
+        animation: plant 0.5s ease-out;
+      }
+      @keyframes plant {
+        0% {
+          transform: scale(0.3) translateY(-18px);
+          opacity: 0;
+        }
+        70% {
+          transform: scale(1.25);
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      #loader_txt {
+        margin-top: 12px;
+        font-size: 13px;
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .leaflet-container {
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="panel">
+      <h1><span class="nd">Véli</span></h1>
+      <p class="tagline">
+        Itinéraires pour les véhicules qui ne sont ni des vélos ni des voitures.
+      </p>
+
+      <div class="tabbar">
+        <button id="tabbtn_route" class="active">
+          <span class="ico">🗺️</span>
+          Itinéraire
+        </button>
+        <button id="tabbtn_settings">
+          <span class="ico">⚙️</span>
+          Réglages
+        </button>
+      </div>
+
+      <!-- ============ onglet Itinéraire ============ -->
+      <div id="tab_route">
+        <div class="card">
+          <div id="stops"></div>
+          <div class="stopbtns">
+            <button id="add_via" class="secondary">＋ Étape</button>
+            <button
+              id="swap"
+              class="secondary"
+              title="Inverser départ et arrivée"
+            >
+              ⇅ Inverser
+            </button>
+          </div>
+          <div class="hint" style="margin-top: 8px">
+            Saisissez une adresse ou cliquez sur la carte. La zone routière est
+            téléchargée automatiquement.
+          </div>
+        </div>
+
+        <button id="cmp" disabled>Comparer à un vélo</button>
+        <button id="clear" class="secondary">Effacer</button>
+        <div id="status"></div>
+
+        <div id="results" class="card">
+          <div class="statgrid">
+            <div class="stat">
+              <span class="k">Distance</span>
+              <b id="r_dist"></b>
+            </div>
+            <div class="stat">
+              <span class="k">Durée</span>
+              <b id="r_time"></b>
+            </div>
+            <div class="stat">
+              <span class="k">Vitesse moy.</span>
+              <b id="r_speed"></b>
+            </div>
+            <div class="stat">
+              <span class="k">Dénivelé</span>
+              <b id="r_climb"></b>
+            </div>
+          </div>
+          <div id="profile_box" style="display: none">
+            <div
+              class="k"
+              style="
+                color: var(--muted);
+                font-size: 10.5px;
+                text-transform: uppercase;
+                letter-spacing: 0.6px;
+                font-weight: 600;
+                margin: 10px 2px 4px;
+              "
+            >
+              Profil altimétrique
+            </div>
+            <div style="position: relative">
+              <svg
+                id="profile"
+                viewBox="0 0 320 96"
+                preserveAspectRatio="none"
+              ></svg>
+              <div id="ptip"></div>
+            </div>
+          </div>
+          <div class="extra" id="r_car_row" style="display: none">
+            🚗 Partagé avec les voitures :
+            <b id="r_car"></b>
+          </div>
+          <div class="extra" id="r_unpaved_row" style="display: none">
+            🪨 Non revêtu :
+            <b id="r_unpaved"></b>
+          </div>
+          <div class="extra" id="r_push_row" style="display: none">
+            🚶 À pied (poussé) :
+            <b id="r_push"></b>
+          </div>
+          <div class="cmpbox" id="r_cmp" style="display: none"></div>
+          <div id="r_warn"></div>
+          <a class="gpx" id="gpx" href="#" download>⬇ Télécharger le GPX</a>
+          <div class="legend">
+            <span
+              class="sw2"
+              style="background: #34d399; margin-left: 0"
+            ></span>
+            Véli
+            <span class="sw2" style="background: #60a5fa"></span>
+            vélo (référence)
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ onglet Réglages ============ -->
+      <div id="tab_settings" hidden>
+        <div class="card">
+          <h2>Véhicule</h2>
+          <div class="row">
+            <label>Largeur</label>
+            <input
+              type="range"
+              id="width"
+              min="0.6"
+              max="1.6"
+              step="0.05"
+              value="0.95"
+            />
+            <span class="val" id="width_v"></span>
+          </div>
+          <div class="hint">
+            Les barrières dont l'ouverture est plus étroite bloquent
+            l'itinéraire.
+          </div>
+          <div class="row">
+            <label>Masse totale</label>
+            <input
+              type="range"
+              id="mass"
+              min="60"
+              max="350"
+              step="5"
+              value="140"
+            />
+            <span class="val" id="mass_v"></span>
+          </div>
+          <div class="row">
+            <label>
+              Puissance d'assistance
+              <small>config. pedal-by-wire</small>
+            </label>
+            <input
+              type="range"
+              id="power"
+              min="100"
+              max="1500"
+              step="25"
+              value="350"
+            />
+            <span class="val" id="power_v"></span>
+          </div>
+          <div class="row">
+            <label>Vitesse max (plat/montée)</label>
+            <select id="vflat">
+              <option value="25">25 km/h (vélo élec.)</option>
+              <option value="45" selected>45 km/h (classe S)</option>
+            </select>
+          </div>
+          <div class="row">
+            <label>Vitesse max en descente</label>
+            <input
+              type="range"
+              id="vdown"
+              min="30"
+              max="90"
+              step="5"
+              value="70"
+            />
+            <span class="val" id="vdown_v"></span>
+          </div>
+          <div class="hint">
+            La descente n'est pas bridée par le moteur : la masse et la faible
+            traînée jouent pour vous - c'est ce qui distingue l'itinéraire
+            optimal de celui d'un vélo.
+          </div>
+          <div class="row">
+            <label>
+              Maniabilité
+              <small>faible = chicanes et virages serrés coûtent cher</small>
+            </label>
+            <input
+              type="range"
+              id="agility"
+              min="0"
+              max="1"
+              step="0.1"
+              value="0.4"
+            />
+            <span class="val" id="agility_v"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Contraintes routières</h2>
+          <div class="row">
+            <label>Emprunter les routes voitures</label>
+            <input type="checkbox" class="sw" id="car_roads" />
+          </div>
+          <div class="subopt" id="car_speed_opt" hidden>
+            <div class="row" style="margin-top: 0">
+              <label>
+                Limite voitures tolérée
+                <small>
+                  routes où les voitures roulent plus vite : exclues
+                </small>
+              </label>
+              <input
+                type="range"
+                id="max_road_speed"
+                min="30"
+                max="80"
+                step="10"
+                value="50"
+              />
+              <span class="val" id="max_road_speed_v"></span>
+            </div>
+          </div>
+          <div class="row">
+            <label>Éviter les chemins piétons</label>
+            <input type="checkbox" class="sw" id="avoid_footways" />
+          </div>
+          <div class="hint" id="footways_hint">
+            Désactivé : les tronçons piétons restent possibles en poussant le
+            véhicule.
+          </div>
+          <div class="subopt" id="footways_replacement" hidden>
+            <div class="hint" style="color: var(--accent2); margin-top: 0">
+              Chemins piétons évités - les routes voitures ont été activées en
+              remplacement : indiquez ci-dessus la limite de vitesse que vous
+              tolérez.
+            </div>
+          </div>
+          <div class="row">
+            <label>Éviter gravier / non revêtu</label>
+            <input
+              type="range"
+              id="avoid_unpaved"
+              min="0"
+              max="1"
+              step="0.1"
+              value="0.5"
+            />
+            <span class="val" id="avoid_unpaved_v"></span>
+          </div>
+          <div class="row">
+            <label>
+              Mode nuit
+              <small>préférer les voies éclairées</small>
+            </label>
+            <input type="checkbox" class="sw" id="night" />
+          </div>
+          <div class="row">
+            <label>Préférence panoramique</label>
+            <input
+              type="range"
+              id="scenic"
+              min="0"
+              max="1"
+              step="0.1"
+              value="0"
+            />
+            <span class="val" id="scenic_v"></span>
+          </div>
+          <div class="row">
+            <label>Barrières non renseignées</label>
+            <select id="barriers_passable">
+              <option value="1" selected>supposer franchissables</option>
+              <option value="0">supposer bloquantes</option>
+            </select>
+          </div>
+          <div class="hint">
+            OSM n'indique souvent pas la largeur des potelets et portails - les
+            barrières supposées sont signalées sur l'itinéraire.
+          </div>
+          <div class="row">
+            <label>Éviter les potelets sans largeur renseignée</label>
+            <input type="checkbox" class="sw" id="skip_untagged_bollards" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="map">
+      <div id="loader">
+        <div class="lcard">
+          <div class="track"><span id="rider">🚴</span></div>
+          <div id="loader_txt">Téléchargement du réseau routier…</div>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script>
+      'use strict';
+      const $ = (id) => document.getElementById(id);
+
+      // ---- onglets -------------------------------------------------------------------
+      function showTab(which) {
+        $('tab_route').hidden = which !== 'route';
+        $('tab_settings').hidden = which !== 'settings';
+        $('tabbtn_route').classList.toggle('active', which === 'route');
+        $('tabbtn_settings').classList.toggle('active', which === 'settings');
+      }
+      $('tabbtn_route').onclick = () => showTab('route');
+      $('tabbtn_settings').onclick = () => showTab('settings');
+
+      // ---- carte ---------------------------------------------------------------------
+      const map = L.map('map', { zoomControl: true });
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributeurs',
+      }).addTo(map);
+      map.setView([46.52, 6.63], 13);
+
+      let netBounds = null,
+        netRect = null,
+        userMoved = false;
+      map.getContainer().addEventListener('pointerdown', () => {
+        userMoved = true;
+      });
+      map.getContainer().addEventListener('wheel', () => {
+        userMoved = true;
+      });
+      const fitNet = () => {
+        map.invalidateSize();
+        if (netBounds && !userMoved) map.fitBounds(netBounds.pad(0.05));
+      };
+      new ResizeObserver(() => {
+        map.invalidateSize();
+        if (!userMoved) fitNet();
+      }).observe(document.getElementById('map'));
+
+      function setNetwork(info) {
+        if (!info || !info.bounds) return;
+        netBounds = L.latLngBounds(info.bounds);
+        if (netRect) map.removeLayer(netRect);
+        netRect = L.rectangle(netBounds, {
+          color: '#60a5fa',
+          weight: 1,
+          fill: false,
+          dashArray: '6 6',
+          interactive: false,
+        }).addTo(map);
+      }
+      fetch('/api/info')
+        .then((r) => r.json())
+        .then((info) => {
+          if (info.bounds) {
+            setNetwork(info);
+            fitNet();
+            setTimeout(fitNet, 300);
+            setStatus(
+              `Réseau chargé : ${info.vertices.toLocaleString('fr-CH')} nœuds.`,
+            );
+          } else {
+            setStatus(
+              'Aucune zone chargée - elle sera téléchargée avec le premier itinéraire.',
+            );
+          }
+        })
+        .catch(() =>
+          setStatus('Backend injoignable - lancez le serveur NeoDrive.'),
+        );
+
+      function setStatus(txt, busy = false) {
+        $('status').textContent = txt;
+        $('status').className = busy ? 'busy' : '';
+      }
+
+      // ---- animation de chargement (le cycliste) ---------------------------------------
+      let loaderHideTimer = null;
+      const rider = $('rider');
+      function showLoader(txt) {
+        clearTimeout(loaderHideTimer);
+        rider.textContent = '🚴';
+        rider.className = 'riding';
+        $('loader_txt').textContent = txt;
+        $('loader').classList.add('on');
+      }
+      // Drapeau suisse en SVG : l'émoji 🇨🇭 s'affiche « CH » sous Windows.
+      const SWISS_FLAG_SVG =
+        '<svg width="30" height="34" viewBox="0 0 32 36" style="vertical-align:bottom">' +
+        '<rect x="3" y="2" width="2.6" height="32" rx="1.3" fill="#8b9bab"/>' +
+        '<g transform="rotate(4 6 4)">' +
+        '<rect x="5.6" y="2" width="22" height="22" rx="3" fill="#da291c"/>' +
+        '<rect x="14.2" y="6" width="4.8" height="14" fill="#fff"/>' +
+        '<rect x="9.6" y="10.6" width="14" height="4.8" fill="#fff"/></g></svg>';
+      function finishLoader(success) {
+        if (!$('loader').classList.contains('on')) return;
+        if (success) {
+          rider.className = 'planted';
+          rider.innerHTML = SWISS_FLAG_SVG;
+          $('loader_txt').textContent = 'Zone chargée !';
+          loaderHideTimer = setTimeout(
+            () => $('loader').classList.remove('on'),
+            1400,
+          );
+        } else {
+          $('loader').classList.remove('on');
+        }
+      }
+
+      // ---- étapes (modèle + interface) -------------------------------------------------
+      let stops = [
+        { latlng: null, name: '', marker: null },
+        { latlng: null, name: '', marker: null },
+      ];
+
+      const stopColor = (i) =>
+        i === 0 ? '#34d399' : i === stops.length - 1 ? '#60a5fa' : '#fbbf24';
+      const stopLetter = (i) => String.fromCharCode(65 + i);
+      const placeholderFor = (i) =>
+        i === 0
+          ? 'Départ - adresse ou clic sur la carte'
+          : i === stops.length - 1
+            ? 'Arrivée - adresse ou clic sur la carte'
+            : 'Étape';
+
+      const mkStopIcon = (letter, color) =>
+        L.divIcon({
+          className: '',
+          html: `<div style="width:26px;height:26px;border-radius:50%;background:${color};
+         border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.5);display:flex;
+         align-items:center;justify-content:center;font:800 12px Inter,system-ui;color:#08110d">${letter}</div>`,
+          iconSize: [26, 26],
+          iconAnchor: [13, 13],
+        });
+
+      function syncMarkers() {
+        stops.forEach((s, i) => {
+          if (s.marker) {
+            map.removeLayer(s.marker);
+            s.marker = null;
+          }
+          if (!s.latlng) return;
+          s.marker = L.marker(s.latlng, {
+            draggable: true,
+            icon: mkStopIcon(stopLetter(i), stopColor(i)),
+          })
+            .addTo(map)
+            .on('dragend', () => {
+              s.latlng = s.marker.getLatLng();
+              reverseGeocode(s);
+              autoRoute(true);
+            });
+        });
+      }
+
+      let debounceTimer = null,
+        geoSeq = 0;
+
+      function renderStops() {
+        const box = $('stops');
+        box.innerHTML = '';
+        stops.forEach((s, i) => {
+          const row = document.createElement('div');
+          row.className = 'stop';
+          const badge = document.createElement('div');
+          badge.className = 'badge';
+          badge.style.background = stopColor(i);
+          badge.textContent = stopLetter(i);
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.placeholder = placeholderFor(i);
+          input.value = s.name;
+          input.autocomplete = 'off';
+          input.addEventListener('input', () => {
+            s.name = input.value;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(
+              () => searchAddress(input.value, row, s),
+              400,
+            );
+          });
+          input.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') {
+              const first = row.querySelector('.suggest div');
+              if (first) first.click();
+            } else if (ev.key === 'Escape') closeSuggest(row);
+          });
+          input.addEventListener('blur', () =>
+            setTimeout(() => closeSuggest(row), 200),
+          );
+          row.appendChild(badge);
+          row.appendChild(input);
+          if (stops.length > 2 && i > 0 && i < stops.length - 1) {
+            const rm = document.createElement('button');
+            rm.className = 'rm';
+            rm.textContent = '✕';
+            rm.title = 'Supprimer cette étape';
+            rm.onclick = () => {
+              stops.splice(i, 1);
+              renderStops();
+              syncMarkers();
+              autoRoute(true);
+            };
+            row.appendChild(rm);
+          }
+          box.appendChild(row);
+        });
+        $('cmp').disabled = !allSet();
+      }
+
+      const allSet = () => stops.length >= 2 && stops.every((s) => s.latlng);
+
+      function closeSuggest(row) {
+        const d = row.querySelector('.suggest');
+        if (d) d.remove();
+      }
+
+      // ---- géocodage (Nominatim / OpenStreetMap) ---------------------------------------
+      const shortName = (dn) =>
+        dn
+          .split(',')
+          .slice(0, 3)
+          .map((x) => x.trim())
+          .join(', ');
+
+      async function searchAddress(q, row, stop) {
+        closeSuggest(row);
+        if (!q || q.trim().length < 3) return;
+        const seq = ++geoSeq;
+        let url =
+          'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=fr&q=' +
+          encodeURIComponent(q);
+        const b = map.getBounds();
+        url += `&viewbox=${b.getWest()},${b.getNorth()},${b.getEast()},${b.getSouth()}&bounded=0`;
+        try {
+          const res = await fetch(url).then((r) => r.json());
+          if (seq !== geoSeq) return;
+          closeSuggest(row);
+          if (!res.length) return;
+          const drop = document.createElement('div');
+          drop.className = 'suggest';
+          res.forEach((hit) => {
+            const item = document.createElement('div');
+            item.textContent = shortName(hit.display_name);
+            item.addEventListener('mousedown', (ev) => ev.preventDefault());
+            item.addEventListener('click', () => {
+              stop.latlng = L.latLng(+hit.lat, +hit.lon);
+              stop.name = shortName(hit.display_name);
+              closeSuggest(row);
+              renderStops();
+              syncMarkers();
+              autoRoute(true);
+            });
+            drop.appendChild(item);
+          });
+          row.appendChild(drop);
+        } catch (e) {
+          /* réseau : on ignore */
+        }
+      }
+
+      async function reverseGeocode(stop) {
+        const { lat, lng } = stop.latlng;
+        stop.name = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        renderStops();
+        try {
+          const r = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=jsonv2&accept-language=fr&zoom=17&lat=${lat}&lon=${lng}`,
+          ).then((x) => x.json());
+          if (r && r.display_name) {
+            stop.name = shortName(r.display_name);
+            renderStops();
+          }
+        } catch (e) {
+          /* les coordonnées restent affichées */
+        }
+      }
+
+      // ---- interactions carte ----------------------------------------------------------
+      map.on('click', (e) => {
+        let s = stops.find((x) => !x.latlng);
+        if (!s) s = stops[stops.length - 1];
+        s.latlng = e.latlng;
+        reverseGeocode(s);
+        syncMarkers();
+        autoRoute(true);
+      });
+
+      $('add_via').onclick = () => {
+        stops.splice(stops.length - 1, 0, {
+          latlng: null,
+          name: '',
+          marker: null,
+        });
+        renderStops();
+        syncMarkers();
+      };
+      $('swap').onclick = () => {
+        stops.reverse();
+        renderStops();
+        syncMarkers();
+        autoRoute(true);
+      };
+      $('clear').onclick = () => {
+        stops.forEach((s) => s.marker && map.removeLayer(s.marker));
+        stops = [
+          { latlng: null, name: '', marker: null },
+          { latlng: null, name: '', marker: null },
+        ];
+        renderStops();
+        if (routeLine) {
+          map.removeLayer(routeLine);
+          routeLine = null;
+        }
+        if (bikeLine) {
+          map.removeLayer(bikeLine);
+          bikeLine = null;
+        }
+        warnMarkers.forEach((m) => map.removeLayer(m));
+        warnMarkers = [];
+        if (profileMarker) {
+          map.removeLayer(profileMarker);
+          profileMarker = null;
+        }
+        profileData = null;
+        $('results').style.display = 'none';
+        setStatus('');
+      };
+
+      // ---- panneau de réglages ---------------------------------------------------------
+      const fmt = {
+        width: (v) => `${Math.round(v * 100)} cm`,
+        mass: (v) => `${v} kg`,
+        power: (v) => `${v} W`,
+        vdown: (v) => `${v} km/h`,
+        max_road_speed: (v) => `≤ ${v} km/h`,
+        agility: (v) =>
+          v <= 0.2 ? 'peu maniable' : v >= 0.8 ? 'agile' : 'moyen',
+        avoid_unpaved: (v) => (v == 0 ? 'non' : v >= 0.8 ? 'fort' : 'moyen'),
+        scenic: (v) => (v == 0 ? 'non' : v >= 0.8 ? 'fort' : 'moyen'),
+      };
+      for (const id of [
+        'width',
+        'mass',
+        'power',
+        'vdown',
+        'max_road_speed',
+        'agility',
+        'avoid_unpaved',
+        'scenic',
+      ]) {
+        const el = $(id),
+          out = $(id + '_v');
+        const upd = () => {
+          out.textContent = fmt[id](+el.value);
+        };
+        el.addEventListener('input', upd);
+        el.addEventListener('change', () => autoRoute(false));
+        upd();
+      }
+      for (const id of [
+        'vflat',
+        'night',
+        'barriers_passable',
+        'skip_untagged_bollards',
+      ])
+        $(id).addEventListener('change', () => autoRoute(false));
+      $('car_roads').addEventListener('change', () => {
+        $('car_speed_opt').hidden = !$('car_roads').checked;
+        autoRoute(false);
+      });
+      // Éviter les piétons implique un itinéraire de remplacement : on invite
+      // l'utilisateur à fixer la vitesse max. des routes voitures qu'il accepte.
+      $('avoid_footways').addEventListener('change', () => {
+        const on = $('avoid_footways').checked;
+        $('footways_replacement').hidden = !on;
+        $('footways_hint').hidden = on;
+        if (on && !$('car_roads').checked) {
+          $('car_roads').checked = true;
+          $('car_speed_opt').hidden = false;
+        }
+        if (on) {
+          const opt = $('car_speed_opt');
+          opt.classList.remove('pulse');
+          void opt.offsetWidth; // relance l'animation
+          opt.classList.add('pulse');
+          opt.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+        autoRoute(false);
+      });
+
+      function params() {
+        const p = new URLSearchParams({
+          from: `${stops[0].latlng.lat.toFixed(6)},${stops[0].latlng.lng.toFixed(6)}`,
+          to: `${stops[stops.length - 1].latlng.lat.toFixed(6)},${stops[stops.length - 1].latlng.lng.toFixed(6)}`,
+          width: $('width').value,
+          mass: $('mass').value,
+          power: $('power').value,
+          vflat: $('vflat').value,
+          vdown: $('vdown').value,
+          agility: $('agility').value,
+          car_roads: $('car_roads').checked ? 1 : 0,
+          max_road_speed: $('max_road_speed').value,
+          avoid_unpaved: $('avoid_unpaved').value,
+          night: $('night').checked ? 1 : 0,
+          scenic: $('scenic').value,
+          barriers_passable: $('barriers_passable').value,
+          skip_untagged_bollards: $('skip_untagged_bollards').checked ? 1 : 0,
+          footways: $('avoid_footways').checked ? 0 : 1,
+        });
+        const vias = stops
+          .slice(1, -1)
+          .filter((s) => s.latlng)
+          .map((s) => `${s.latlng.lat.toFixed(6)},${s.latlng.lng.toFixed(6)}`);
+        if (vias.length) p.set('via', vias.join('|'));
+        return p;
+      }
+
+      const fmtDist = (m) =>
+        m >= 1000
+          ? (m / 1000).toFixed(2).replace('.', ',') + ' km'
+          : Math.round(m) + ' m';
+      const fmtTime = (s) => {
+        const min = Math.round(s / 60);
+        return min >= 60
+          ? `${Math.floor(min / 60)} h ${String(min % 60).padStart(2, '0')}`
+          : `${min} min`;
+      };
+
+      // ---- profil altimétrique ---------------------------------------------------------
+      let profileMarker = null,
+        profileData = null;
+      function havJS(a, b) {
+        const R = 6371000,
+          r = Math.PI / 180;
+        const dlat = (b[0] - a[0]) * r,
+          dlon = (b[1] - a[1]) * r;
+        const s =
+          Math.sin(dlat / 2) ** 2 +
+          Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dlon / 2) ** 2;
+        return 2 * R * Math.asin(Math.sqrt(s));
+      }
+      function renderProfile(geom, eles) {
+        const box = $('profile_box'),
+          svg = $('profile');
+        profileData = null;
+        if (profileMarker) {
+          map.removeLayer(profileMarker);
+          profileMarker = null;
+        }
+        if (!geom || geom.length < 2 || !eles || !eles.some((e) => e != null)) {
+          box.style.display = 'none';
+          return;
+        }
+        const dist = [0];
+        for (let i = 1; i < geom.length; i++)
+          dist.push(dist[i - 1] + havJS(geom[i - 1], geom[i]));
+        const total = dist[dist.length - 1] || 1;
+        // combler les trous d'élévation (report avant/arrière)
+        const el = eles.slice();
+        let last = null;
+        for (let i = 0; i < el.length; i++) {
+          if (el[i] == null) el[i] = last;
+          else last = el[i];
+        }
+        last = null;
+        for (let i = el.length - 1; i >= 0; i--) {
+          if (el[i] == null) el[i] = last;
+          else last = el[i];
+        }
+        let mn = Math.min(...el),
+          mx = Math.max(...el);
+        if (mx - mn < 10) {
+          const c = (mx + mn) / 2;
+          mn = c - 5;
+          mx = c + 5;
+        }
+        const W = 320,
+          H = 96,
+          PT = 14,
+          PB = 6;
+        const X = (i) => (dist[i] / total) * W,
+          Y = (v) => PT + (1 - (v - mn) / (mx - mn)) * (H - PT - PB);
+        let d = `M0,${Y(el[0]).toFixed(1)}`;
+        for (let i = 1; i < el.length; i++)
+          d += `L${X(i).toFixed(1)},${Y(el[i]).toFixed(1)}`;
+        svg.innerHTML =
+          `<defs><linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">` +
+          `<stop offset="0" stop-color="#34d399" stop-opacity=".5"/>` +
+          `<stop offset="1" stop-color="#34d399" stop-opacity=".04"/></linearGradient></defs>` +
+          `<path d="${d}L${W},${H}L0,${H}Z" fill="url(#pg)"/>` +
+          `<path d="${d}" fill="none" stroke="#34d399" stroke-width="2" vector-effect="non-scaling-stroke"/>` +
+          `<text x="4" y="11" font-size="9" fill="#8b9bab">${Math.round(mx)} m</text>` +
+          `<text x="4" y="${H - 2}" font-size="9" fill="#8b9bab">${Math.round(mn)} m</text>` +
+          `<text x="${W - 4}" y="${H - 2}" font-size="9" fill="#8b9bab" text-anchor="end">${(total / 1000).toFixed(1).replace('.', ',')} km</text>`;
+        box.style.display = 'block';
+        profileData = { geom, el, dist, total };
+      }
+      $('profile').addEventListener('pointermove', (ev) => {
+        if (!profileData) return;
+        const rect = ev.currentTarget.getBoundingClientRect();
+        const fx = Math.min(
+          Math.max((ev.clientX - rect.left) / rect.width, 0),
+          1,
+        );
+        const target = fx * profileData.total;
+        let i = profileData.dist.findIndex((dd) => dd >= target);
+        if (i < 0) i = profileData.dist.length - 1;
+        const tip = $('ptip');
+        tip.style.display = 'block';
+        tip.style.left = fx * rect.width + 'px';
+        tip.style.top = '42px';
+        tip.textContent = `${(target / 1000).toFixed(1).replace('.', ',')} km - ${Math.round(profileData.el[i])} m`;
+        const ll = profileData.geom[i];
+        if (!profileMarker)
+          profileMarker = L.circleMarker(ll, {
+            radius: 6,
+            color: '#fff',
+            weight: 2,
+            fillColor: '#34d399',
+            fillOpacity: 1,
+          }).addTo(map);
+        else profileMarker.setLatLng(ll);
+      });
+      $('profile').addEventListener('pointerleave', () => {
+        $('ptip').style.display = 'none';
+        if (profileMarker) {
+          map.removeLayer(profileMarker);
+          profileMarker = null;
+        }
+      });
+
+      // ---- calcul d'itinéraire ---------------------------------------------------------
+      let routeLine = null,
+        bikeLine = null,
+        warnMarkers = [];
+      let inflight = null,
+        lastFitKey = '',
+        slowTimer = null;
+
+      function autoRoute(endpointsChanged) {
+        if (allSet()) computeRoute(false, endpointsChanged);
+        $('cmp').disabled = !allSet();
+      }
+      $('cmp').onclick = () => computeRoute(true, false);
+
+      async function computeRoute(withBicycle, endpointsChanged) {
+        if (!allSet()) return;
+        if (inflight) inflight.abort();
+        clearTimeout(slowTimer);
+        inflight = new AbortController();
+        const outside =
+          !netBounds || stops.some((s) => !netBounds.contains(s.latlng));
+        if (outside) {
+          showLoader('Téléchargement du réseau routier de la zone…');
+          setStatus(
+            "Téléchargement du réseau routier… (jusqu'à ~1 min la première fois)",
+            true,
+          );
+        } else {
+          setStatus("Calcul de l'itinéraire…", true);
+          // si le serveur re-télécharge quand même (bord de zone), montrer le voyageur
+          slowTimer = setTimeout(
+            () => showLoader('Préparation de la zone…'),
+            1500,
+          );
+        }
+        try {
+          const q = params();
+          const r = await fetch('/api/route?' + q, {
+            signal: inflight.signal,
+          }).then((x) => x.json());
+          clearTimeout(slowTimer);
+          finishLoader(!!r.network || r.ok);
+          if (r.network) setNetwork(r.network);
+          warnMarkers.forEach((m) => map.removeLayer(m));
+          warnMarkers = [];
+          if (bikeLine) {
+            map.removeLayer(bikeLine);
+            bikeLine = null;
+          }
+          $('r_cmp').style.display = 'none';
+          $('r_cmp').innerHTML = '';
+          if (!r.ok) {
+            $('results').style.display = 'block';
+            $('r_warn').innerHTML = `<div class="errbox">${r.error}</div>`;
+            if (routeLine) {
+              map.removeLayer(routeLine);
+              routeLine = null;
+            }
+            ['r_dist', 'r_time', 'r_speed', 'r_climb'].forEach(
+              (i) => ($(i).textContent = '-'),
+            );
+            ['r_car_row', 'r_unpaved_row', 'r_push_row', 'profile_box'].forEach(
+              (i) => ($(i).style.display = 'none'),
+            );
+            setStatus('');
+            return;
+          }
+          if (routeLine) map.removeLayer(routeLine);
+          routeLine = L.polyline(r.geometry, {
+            color: '#34d399',
+            weight: 5,
+            opacity: 0.92,
+          }).addTo(map);
+          const fitKey = stops
+            .map(
+              (s) =>
+                s.latlng &&
+                `${s.latlng.lat.toFixed(5)},${s.latlng.lng.toFixed(5)}`,
+            )
+            .join(';');
+          if (endpointsChanged || fitKey !== lastFitKey) {
+            map.fitBounds(routeLine.getBounds().pad(0.18));
+            lastFitKey = fitKey;
+          }
+          $('results').style.display = 'block';
+          $('r_dist').textContent = fmtDist(r.distance_m);
+          $('r_time').textContent = fmtTime(r.time_s);
+          $('r_speed').textContent =
+            ((r.distance_m / r.time_s) * 3.6).toFixed(1).replace('.', ',') +
+            ' km/h';
+          $('r_climb').textContent =
+            `+${Math.round(r.ascent_m)} / −${Math.round(r.descent_m)} m`;
+          const optRow = (row, cell, val) => {
+            $(row).style.display = val > 1 ? 'block' : 'none';
+            $(cell).textContent = fmtDist(val);
+          };
+          optRow('r_car_row', 'r_car', r.on_car_roads_m);
+          optRow('r_unpaved_row', 'r_unpaved', r.on_unpaved_m);
+          optRow('r_push_row', 'r_push', r.pushing_m);
+          renderProfile(r.geometry, r.elevations);
+          $('gpx').href = '/api/route.gpx?' + q;
+          // un seul encart par catégorie d'avertissement (avec compteur)…
+          const groups = new Map();
+          for (const w of r.warnings) {
+            if (w.kind === 'barrier_ok') continue;
+            if (!groups.has(w.kind))
+              groups.set(w.kind, { text: w.text, count: 1 });
+            else groups.get(w.kind).count++;
+          }
+          if (groups.has('pushing'))
+            groups.get('pushing').text =
+              `${fmtDist(r.pushing_m)} de l'itinéraire à pied - mettre pied à terre et pousser.`;
+          $('r_warn').innerHTML = [...groups.values()]
+            .map(
+              (g) =>
+                `<div class="warnbox">⚠ ${g.text}${g.count > 1 ? ` <b>(×${g.count})</b>` : ''}</div>`,
+            )
+            .join('');
+          // …mais chaque avertissement individuel est marqué sur la carte
+          for (const w of r.warnings) {
+            const color =
+              w.kind === 'barrier_assumed'
+                ? '#fbbf24'
+                : w.kind === 'pushing'
+                  ? '#60a5fa'
+                  : '#8b9bab';
+            warnMarkers.push(
+              L.circleMarker([w.lat, w.lon], {
+                radius: 7,
+                color,
+                weight: 2,
+                fillColor: color,
+                fillOpacity: 0.5,
+              })
+                .addTo(map)
+                .bindPopup(w.text),
+            );
+          }
+          setStatus(`Calculé en ${r.compute_ms.toFixed(0)} ms.`);
+
+          if (withBicycle) {
+            setStatus("Calcul de l'itinéraire vélo de référence…", true);
+            const bq = new URLSearchParams(q);
+            bq.set('bicycle_baseline', '1');
+            const b = await fetch('/api/route?' + bq, {
+              signal: inflight.signal,
+            }).then((x) => x.json());
+            if (b.ok) {
+              bikeLine = L.polyline(b.geometry, {
+                color: '#60a5fa',
+                weight: 3,
+                dashArray: '8 8',
+                opacity: 0.85,
+              }).addTo(map);
+              const bset = new Set(
+                b.geometry.map((p) => p[0].toFixed(5) + ',' + p[1].toFixed(5)),
+              );
+              const shared = r.geometry.filter((p) =>
+                bset.has(p[0].toFixed(5) + ',' + p[1].toFixed(5)),
+              ).length;
+              const overlap = Math.round((100 * shared) / r.geometry.length);
+              $('r_cmp').style.display = 'block';
+              $('r_cmp').innerHTML =
+                `<div>Vélo (référence) <b>${fmtDist(b.distance_m)}, ${fmtTime(b.time_s)}</b></div>
+           <div style="clear:both">Recouvrement des itinéraires <b>${overlap} %</b></div>`;
+              setStatus(
+                overlap < 70
+                  ? "Les itinéraires diffèrent nettement - ce véhicule n'est pas un vélo."
+                  : 'Les itinéraires coïncident largement ici.',
+              );
+            } else {
+              setStatus("Pas d'itinéraire vélo de référence : " + b.error);
+            }
+          }
+        } catch (e) {
+          clearTimeout(slowTimer);
+          if (e.name !== 'AbortError') {
+            finishLoader(false);
+            setStatus('Échec de la requête : ' + e.message);
+          }
+        }
+      }
+
+      renderStops();
+    </script>
+  </body>
+</html>
